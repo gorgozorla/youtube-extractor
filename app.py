@@ -4,13 +4,8 @@ from urllib.parse import urlparse, parse_qs
 
 app = Flask(__name__)
 
-# 이 데코레이터는 Vercel에서 CORS를 자동으로 처리해주므로 필요 없을 수 있지만,
-# 만약을 위해 남겨둡니다.
-@app.after_request
-def after_request(response):
-    header = response.headers
-    header['Access-Control-Allow-Origin'] = '*'
-    return response
+# Vercel의 자동 CORS 정책과의 충돌 가능성을 없애기 위해
+# @app.after_request 관련 코드를 제거했습니다.
 
 @app.route('/api/transcript', methods=['GET'])
 def get_transcript():
@@ -35,6 +30,7 @@ def get_transcript():
         # Vercel 로그에서 에러를 확인하기 쉽도록 print()를 추가합니다.
         print(f"An error occurred: {e}")
         return jsonify({"error": "자막을 가져올 수 없거나 처리 중 오류가 발생했습니다."}), 500
+
 
 
 
