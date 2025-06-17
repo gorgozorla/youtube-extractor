@@ -113,7 +113,6 @@
             fetch(`/api/transcript?url=${encodeURIComponent(youtubeUrl)}`)
                 .then(response => {
                     if (!response.ok) {
-                        // 서버가 보낸 에러 메시지를 얻기 위해 추가 처리
                         return response.json().then(errorData => {
                             throw new Error(`서버 에러 (코드: ${response.status}) - ${errorData.error || '내용 없음'}`);
                         });
@@ -151,3 +150,4 @@
     </script>
 </body>
 </html>
+
