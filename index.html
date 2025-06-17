@@ -2,152 +2,169 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>초보의 유튜브 자막 추출기</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>유튜브 자막 추출기</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            max-width: 700px;
-            margin: 50px auto;
-            padding: 20px;
+            font-family: 'Inter', sans-serif;
             background-color: #f0f2f5;
+        }
+        /* Custom scrollbar for subtitle display */
+        #subtitleOutput::-webkit-scrollbar {
+            width: 8px;
+        }
+        #subtitleOutput::-webkit-scrollbar-track {
+            background: #e2e8f0;
             border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
-        h1 {
-            text-align: center;
-            color: #1c1e21;
+        #subtitleOutput::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
         }
-        .input-area {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        #youtube-url {
-            flex-grow: 1;
-            padding: 12px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-        }
-        #extract-btn {
-            padding: 12px 25px;
-            font-size: 16px;
-            font-weight: bold;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        #extract-btn:hover {
-            background-color: #0056b3;
-        }
-        #extract-btn:disabled {
-            background-color: #6c757d;
-            cursor: not-allowed;
-        }
-        #result-area {
-            margin-top: 25px;
-        }
-        #transcript {
-            box-sizing: border-box;
-            width: 100%;
-            height: 300px;
-            padding: 10px;
-            font-size: 15px;
-            line-height: 1.6;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            resize: vertical;
-        }
-        #message {
-            margin-top: 10px;
-            padding: 10px;
-            text-align: center;
-            font-weight: bold;
-            border-radius: 5px;
-        }
-        .error {
-            color: #d32f2f;
-            background-color: #ffcdd2;
-        }
-        .loading {
-            color: #333;
+        #subtitleOutput::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
         }
     </style>
 </head>
-<body>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg w-full max-w-lg">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">유튜브 자막 추출기 🚀</h1>
 
-    <h1>유튜브 자막 추출기</h1>
-    
-    <div class="input-area">
-        <input type="text" id="youtube-url" placeholder="여기에 유튜브 영상 주소를 붙여넣으세요...">
-        <button id="extract-btn">추출하기</button>
-    </div>
+        <div class="mb-4">
+            <label for="youtubeUrl" class="block text-gray-700 text-sm font-medium mb-2">유튜브 비디오 URL:</label>
+            <input type="url" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..."
+                   class="shadow-sm appearance-none border rounded-xl w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ease-in-out"
+                   aria-label="유튜브 비디오 URL 입력">
+        </div>
 
-    <div id="result-area">
-        <h3>추출된 자막</h3>
-        <textarea id="transcript" readonly placeholder="이곳에 추출된 자막이 표시됩니다."></textarea>
-        <div id="message"></div>
+        <button id="extractButton"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 active:scale-95 shadow-md">
+            자막 추출하기
+        </button>
+
+        <div id="loadingIndicator" class="hidden text-center text-blue-600 font-medium mt-4">
+            자막을 추출하는 중... 잠시만 기다려주세요!
+        </div>
+
+        <div id="messageBox" class="hidden mt-4 p-3 rounded-lg text-sm" role="alert"></div>
+
+        <div id="resultContainer" class="hidden mt-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-3">추출된 자막:</h2>
+            <div id="subtitleOutput" class="bg-gray-100 p-4 rounded-xl border border-gray-200 h-64 overflow-y-auto text-gray-800 text-sm whitespace-pre-wrap">
+                <!-- Subtitles will be displayed here -->
+            </div>
+            <button id="copyButton"
+                    class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 active:scale-95 shadow-md">
+                클립보드에 복사
+            </button>
+        </div>
     </div>
 
     <script>
-        const urlInput = document.getElementById('youtube-url');
-        const extractBtn = document.getElementById('extract-btn');
-        const transcriptTextarea = document.getElementById('transcript');
-        const messageDiv = document.getElementById('message');
+        const youtubeUrlInput = document.getElementById('youtubeUrl');
+        const extractButton = document.getElementById('extractButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const messageBox = document.getElementById('messageBox');
+        const resultContainer = document.getElementById('resultContainer');
+        const subtitleOutput = document.getElementById('subtitleOutput');
+        const copyButton = document.getElementById('copyButton');
 
-        const handleExtract = () => {
-            const youtubeUrl = urlInput.value.trim();
-
-            if (!youtubeUrl) {
-                showMessage('유튜브 주소를 입력해주세요!', 'error');
-                return;
+        // Function to display messages in the messageBox
+        function showMessage(message, type = 'info') {
+            messageBox.textContent = message;
+            messageBox.className = 'mt-4 p-3 rounded-lg text-sm'; // Reset classes
+            if (type === 'error') {
+                messageBox.classList.add('bg-red-100', 'text-red-700', 'border', 'border-red-200');
+            } else if (type === 'success') {
+                messageBox.classList.add('bg-green-100', 'text-green-700', 'border', 'border-green-200');
+            } else { // info or default
+                messageBox.classList.add('bg-blue-100', 'text-blue-700', 'border', 'border-blue-200');
             }
-            
-            showMessage('자막을 가져오는 중입니다...', 'loading');
-            transcriptTextarea.value = ""; 
-            extractBtn.disabled = true;
-
-            fetch(`/api/transcript?url=${encodeURIComponent(youtubeUrl)}`)
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(errorData => {
-                            throw new Error(`서버 에러 (코드: ${response.status}) - ${errorData.error || '내용 없음'}`);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.error) {
-                        showMessage(data.error, 'error');
-                    } else {
-                        transcriptTextarea.value = data.transcript;
-                        messageDiv.innerHTML = "";
-                    }
-                })
-                .catch(error => {
-                    console.error('Fetch Error:', error.message);
-                    showMessage(error.message, 'error');
-                })
-                .finally(() => {
-                    extractBtn.disabled = false;
-                });
-        };
-
-        const showMessage = (text, type) => {
-            messageDiv.textContent = text;
-            messageDiv.className = type;
+            messageBox.classList.remove('hidden');
         }
 
-        extractBtn.addEventListener('click', handleExtract);
-        urlInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                handleExtract();
+        // Function to hide messages
+        function hideMessage() {
+            messageBox.classList.add('hidden');
+        }
+
+        extractButton.addEventListener('click', async () => {
+            const url = youtubeUrlInput.value.trim();
+            hideMessage();
+            resultContainer.classList.add('hidden');
+            subtitleOutput.textContent = ''; // Clear previous subtitles
+
+            if (!url) {
+                showMessage('유튜브 URL을 입력해주세요.', 'error');
+                return;
+            }
+
+            loadingIndicator.classList.remove('hidden');
+            extractButton.disabled = true; // Disable button during extraction
+
+            try {
+                const response = await fetch('/extract_subtitles', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ youtube_url: url }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.subtitles && data.subtitles.length > 0) {
+                        const formattedSubtitles = data.subtitles.map(line => line.text).join('\n');
+                        subtitleOutput.textContent = formattedSubtitles;
+                        resultContainer.classList.remove('hidden');
+                        showMessage('자막이 성공적으로 추출되었습니다!', 'success');
+                    } else {
+                        showMessage('이 비디오에 자막이 없거나 추출할 수 없습니다.', 'info');
+                    }
+                } else {
+                    showMessage(`오류: ${data.error || '자막 추출에 실패했습니다.'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showMessage('네트워크 오류가 발생했습니다. 다시 시도해주세요.', 'error');
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                extractButton.disabled = false; // Re-enable button
+            }
+        });
+
+        copyButton.addEventListener('click', () => {
+            if (subtitleOutput.textContent) {
+                // Use execCommand for better compatibility in iframes
+                const textArea = document.createElement('textarea');
+                textArea.value = subtitleOutput.textContent;
+                textArea.style.position = 'fixed'; // Avoid scrolling to bottom
+                textArea.style.opacity = '0'; // Hide
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        showMessage('자막이 클립보드에 복사되었습니다!', 'success');
+                    } else {
+                        showMessage('클립보드 복사에 실패했습니다.', 'error');
+                    }
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                    showMessage('클립보드 복사 중 오류가 발생했습니다.', 'error');
+                } finally {
+                    document.body.removeChild(textArea);
+                }
+            } else {
+                showMessage('복사할 자막이 없습니다.', 'info');
             }
         });
     </script>
 </body>
 </html>
+
 
