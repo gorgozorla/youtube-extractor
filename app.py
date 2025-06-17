@@ -1,17 +1,17 @@
-# 필요한 도구들을 불러옵니다.
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 from youtube_transcript_api import YouTubeTranscriptApi
 from urllib.parse import urlparse, parse_qs
 
-# Flask 앱(우리의 서버)을 생성합니다.
-# Vercel 환경에서는 이 'app' 변수를 찾아서 실행합니다.
 app = Flask(__name__)
-CORS(app)
 
-# Vercel에서는 파일 이름이 곧 주소가 되므로,
-# /api/transcript 경로 대신 /app 경로로 만들어도 됩니다.
-# 하지만 클라이언트와의 호환을 위해 유지합니다.
+# 이 데코레이터는 Vercel에서 CORS를 자동으로 처리해주므로 필요 없을 수 있지만,
+# 만약을 위해 남겨둡니다.
+@app.after_request
+def after_request(response):
+    header = response.headers
+    header['Access-Control-Allow-Origin'] = '*'
+    return response
+
 @app.route('/api/transcript', methods=['GET'])
 def get_transcript():
     video_url = request.args.get('url')
@@ -21,8 +21,10 @@ def get_transcript():
 
     try:
         query = urlparse(video_url).query
-        params = parse_qs(query)
-        video_id = params["v"][0]
+        if 'v' not in parse_qs(query):
+            raise ValueError("유효한 YouTube 주소가 아닙니다.")
+            
+        video_id = parse_qs(query)["v"][0]
 
         transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['ko', 'en'])
         full_transcript = " ".join([item['text'] for item in transcript_list])
@@ -30,9 +32,8 @@ def get_transcript():
         return jsonify({"transcript": full_transcript})
 
     except Exception as e:
-        return jsonify({"error": "자막을 가져올 수 없습니다. 자막이 없는 영상이거나 주소가 잘못되었을 수 있습니다."}), 500
+        # Vercel 로그에서 에러를 확인하기 쉽도록 print()를 추가합니다.
+        print(f"An error occurred: {e}")
+        return jsonify({"error": "자막을 가져올 수 없거나 처리 중 오류가 발생했습니다."}), 500
 
-# 로컬에서 테스트할 때만 필요하고, Vercel 배포 시에는 이 부분은 사용되지 않습니다.
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
 
