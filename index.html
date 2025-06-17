@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>초보의 유튜브 자막 추출기</title>
+    <!-- 이 style 태그 안쪽은 웹페이지 디자인(CSS)을 담당합니다. -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            max-width: 700px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #1c1e21;
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        #youtube-url {
+            flex-grow: 1; /* 입력창이 남은 공간을 모두 차지하도록 함 */
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+        #extract-btn {
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #extract-btn:hover {
+            background-color: #0056b3;
+        }
+        #extract-btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        #result-area {
+            margin-top: 25px;
+        }
+        #transcript {
+            box-sizing: border-box; /* 패딩과 테두리를 너비에 포함시켜서 가로 스크롤바가 생기지 않도록 함 */
+            width: 100%;
+            height: 300px;
+            padding: 10px;
+            font-size: 15px;
+            line-height: 1.6;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            resize: vertical; /* 사용자가 세로 크기만 조절할 수 있게 함 */
+        }
+        #message {
+            margin-top: 10px;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            border-radius: 5px;
+        }
+        .error {
+            color: #d32f2f;
+            background-color: #ffcdd2;
+        }
+        .loading {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- 이 body 태그 안쪽은 화면에 보이는 내용(HTML)을 담당합니다. -->
+    <h1>유튜브 자막 추출기</h1>
+    
+    <div class="input-area">
+        <input type="text" id="youtube-url" placeholder="여기에 유튜브 영상 주소를 붙여넣으세요...">
+        <button id="extract-btn">추출하기</button>
+    </div>
+
+    <div id="result-area">
+        <h3>추출된 자막</h3>
+        <textarea id="transcript" readonly placeholder="이곳에 추출된 자막이 표시됩니다."></textarea>
+        <div id="message"></div>
+    </div>
+
+    <!-- 이 script 태그 안쪽은 웹페이지의 동작(JavaScript)을 담당합니다. -->
+    <script>
+        // HTML에 있는 중요한 요소들을 미리 찾아 변수에 저장해둡니다.
+        const urlInput = document.getElementById('youtube-url');
+        const extractBtn = document.getElementById('extract-btn');
+        const transcriptTextarea = document.getElementById('transcript');
+        const messageDiv = document.getElementById('message');
+
+        // '추출하기' 버튼을 클릭했을 때 실행될 함수를 정의합니다.
+        const handleExtract = () => {
+            const youtubeUrl = urlInput.value.trim(); // 입력창의 글자를 가져오고 양쪽 공백을 제거합니다.
+
+            // 주소가 비어있는지 확인합니다.
+            if (!youtubeUrl) {
+                showMessage('유튜브 주소를 입력해주세요!', 'error');
+                return; // 함수를 여기서 중단합니다.
+            }
+            
+            // 로딩 상태를 사용자에게 보여줍니다.
+            showMessage('자막을 가져오는 중입니다...', 'loading');
+            transcriptTextarea.value = ""; // 이전 결과를 지웁니다.
+            extractBtn.disabled = true; // 버튼을 여러 번 누르지 못하게 비활성화합니다.
+
+            // 드디어 서버(app.py)에게 일을 시킵니다!
+            // fetch는 서버에게 말을 거는 전화기 같은 역할을 합니다.
+            fetch(`http://127.0.0.1:5000/api/transcript?url=${encodeURIComponent(youtubeUrl)}`)
+                .then(response => response.json()) // 서버의 답변을 우리가 쓸 수 있는 형태로 변환합니다.
+                .then(data => {
+                    // 서버가 에러 메시지를 보냈는지 확인합니다.
+                    if (data.error) {
+                        showMessage(data.error, 'error');
+                    } else {
+                        // 성공적으로 자막을 받으면, 텍스트 영역에 보여줍니다.
+                        transcriptTextarea.value = data.transcript;
+                        messageDiv.innerHTML = ""; // 성공 메시지는 따로 보여주지 않고 깨끗하게 비웁니다.
+                    }
+                })
+                .catch(error => {
+                    // 서버와 통신 자체를 실패한 경우입니다. (서버가 꺼져있을 가능성이 높음)
+                    console.error('Fetch Error:', error);
+                    showMessage('서버와 통신할 수 없습니다. app.py가 실행 중인지 확인하세요!', 'error');
+                })
+                .finally(() => {
+                    // 성공하든 실패하든, 마지막에는 버튼을 다시 누를 수 있게 활성화합니다.
+                    extractBtn.disabled = false;
+                });
+        };
+
+        // 메시지를 보여주는 도우미 함수입니다.
+        const showMessage = (text, type) => {
+            messageDiv.textContent = text;
+            messageDiv.className = type; // 'error' 또는 'loading' 클래스를 적용해 디자인을 바꿉니다.
+        }
+
+        // '추출하기' 버튼에 클릭 이벤트를 연결합니다.
+        extractBtn.addEventListener('click', handleExtract);
+
+        // 입력창에서 엔터 키를 눌러도 추출이 시작되게 합니다.
+        urlInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                handleExtract();
+            }
+        });
+    </script>
+</body>
+</html>
