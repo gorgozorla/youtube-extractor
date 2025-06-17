@@ -95,15 +95,13 @@
 
     <!-- 이 script 태그 안쪽은 웹페이지의 동작(JavaScript)을 담당합니다. -->
     <script>
-        // HTML에 있는 중요한 요소들을 미리 찾아 변수에 저장해둡니다.
         const urlInput = document.getElementById('youtube-url');
         const extractBtn = document.getElementById('extract-btn');
         const transcriptTextarea = document.getElementById('transcript');
         const messageDiv = document.getElementById('message');
 
-        // '추출하기' 버튼을 클릭했을 때 실행될 함수를 정의합니다.
         const handleExtract = () => {
-            const youtubeUrl = urlInput.value.trim(); // 입력창의 글자를 가져오고 양쪽 공백을 제거합니다.
+            const youtubeUrl = urlInput.value.trim();
 
             if (!youtubeUrl) {
                 showMessage('유튜브 주소를 입력해주세요!', 'error');
@@ -114,40 +112,45 @@
             transcriptTextarea.value = ""; 
             extractBtn.disabled = true;
 
-            // 배포된 서버의 API 경로를 찾아갑니다.
+            // ★★★ 수정된 부분: 에러 처리를 더 자세하게 변경 ★★★
             fetch(`/api/transcript?url=${encodeURIComponent(youtubeUrl)}`)
-                .then(response => response.json()) 
+                .then(response => {
+                    // 먼저, 서버가 성공적으로 응답했는지 확인합니다. (HTTP 상태 코드 200-299)
+                    if (!response.ok) {
+                        // 만약 서버가 에러를 뱉어냈다면 (예: 404 Not Found, 500 Internal Server Error)
+                        // 어떤 에러인지 내용과 함께 에러를 발생시켜 .catch()로 보냅니다.
+                        throw new Error(`서버 에러 (코드: ${response.status})`);
+                    }
+                    // 성공했다면, 응답 내용을 json 형태로 변환합니다.
+                    return response.json();
+                })
                 .then(data => {
-                    // 서버가 에러 메시지를 보냈는지 확인합니다.
+                    // 우리 앱이 정의한 에러가 있는지 확인합니다. (예: "자막을 가져올 수 없습니다")
                     if (data.error) {
                         showMessage(data.error, 'error');
                     } else {
-                        // 성공적으로 자막을 받으면, 텍스트 영역에 보여줍니다.
+                        // 모든 것이 성공하면 자막을 보여줍니다.
                         transcriptTextarea.value = data.transcript;
-                        messageDiv.innerHTML = ""; // 성공 시 메시지 창은 깨끗하게 비웁니다.
+                        messageDiv.innerHTML = "";
                     }
                 })
                 .catch(error => {
-                    // 서버와 통신 자체를 실패한 경우, 배포 환경에 맞는 에러 메시지를 보여줍니다.
-                    console.error('Fetch Error:', error);
-                    showMessage('서버와 통신할 수 없습니다. 잠시 후 다시 시도해주세요.', 'error');
+                    // 네트워크 통신 자체에 실패했거나, 위에서 우리가 발생시킨 에러를 여기서 잡습니다.
+                    console.error('Fetch Error:', error.message);
+                    // 더 자세한 에러 메시지를 화면에 보여줍니다.
+                    showMessage(error.message, 'error');
                 })
                 .finally(() => {
-                    // 성공하든 실패하든, 마지막에는 버튼을 다시 누를 수 있게 활성화합니다.
                     extractBtn.disabled = false;
                 });
         };
 
-        // 메시지를 보여주는 도우미 함수입니다.
         const showMessage = (text, type) => {
             messageDiv.textContent = text;
             messageDiv.className = type;
         }
 
-        // '추출하기' 버튼에 클릭 이벤트를 연결합니다.
         extractBtn.addEventListener('click', handleExtract);
-
-        // 입력창에서 엔터 키를 눌러도 추출이 시작되게 합니다.
         urlInput.addEventListener('keydown', (event) => {
             if (event.key === 'Enter') {
                 handleExtract();
@@ -156,3 +159,15 @@
     </script>
 </body>
 </html>
+```
+
+### 다음 단계
+
+1.  이 코드로 VS Code의 `index.html` 파일 내용을 **전부 교체**하고 **저장(`Ctrl+S`)** 해주세요.
+2.  이전과 똑같은 방법으로, 터미널을 이용해 수정한 내용을 **GitHub에 다시 올려주세요.**
+    * `git add .`
+    * `git commit -m "자세한 에러 메시지 표시 기능 추가"`
+    * `git push origin main`
+3.  Vercel에서 재배포가 완료되면, 사이트를 새로고침하고 다시 한번 추출을 시도해보세요.
+
+이제는 "서버와 통신할 수 없습니다" 대신, **`서버 에러 (코드: 500)`** 이나 **`서버 에러 (코드: 404)`** 와 같이 더 구체적인 에러 메시지가 나타날 겁니다. 그 메시지를 저에게 알려주시면, 진짜 원인을 찾아서 해결해 드릴 수 있습
