@@ -37,3 +37,4 @@ def get_transcript():
         return jsonify({"error": "자막을 가져올 수 없거나 처리 중 오류가 발생했습니다."}), 500
 
 
+
